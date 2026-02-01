@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use tauri::{
@@ -120,16 +120,21 @@ fn save_memos_to_file(memos: &Vec<Memo>) -> Result<(), String> {
     Ok(())
 }
 
-// 배치 저장 스케줄링 (500ms 디바운스)
-fn schedule_save(state: &AppState) {
+// 배치 저장 스케줄링 (500ms 디바운스) - 수정됨
+// Arc<AppState>를 받아 저장 시점에 최신 데이터를 읽음
+fn schedule_save(state: &Arc<AppState>) {
+    let state = Arc::clone(state);
     if !state.save_pending.swap(true, Ordering::SeqCst) {
         // 이미 pending이 아닐 때만 새 스레드 생성
-        let memos = state.memos.lock().unwrap().clone();
         thread::spawn(move || {
             thread::sleep(Duration::from_millis(500));
+            // 저장 시점에 최신 데이터 읽기
+            let memos = state.memos.lock().unwrap().clone();
             if let Err(e) = save_memos_to_file(&memos) {
                 eprintln!("Failed to save memos: {}", e);
             }
+            // 저장 완료 후 플래그 리셋
+            state.save_pending.store(false, Ordering::SeqCst);
         });
     }
 }
@@ -146,34 +151,31 @@ fn save_immediately(state: &AppState) -> Result<(), String> {
 // Tauri Commands - 메모 CRUD
 // ============================================
 
+// 타입 별칭: Arc로 감싼 AppState
+type SharedState = Arc<AppState>;
+
 /// 모든 메모 조회 (캐시에서)
 #[tauri::command]
-fn load_memos(state: State<AppState>) -> Vec<Memo> {
+fn load_memos(state: State<SharedState>) -> Vec<Memo> {
     state.memos.lock().unwrap().clone()
-}
-
-/// 기존 호환용 - 전체 저장 (deprecated, 하위 호환)
-#[tauri::command]
-fn save_memos(state: State<AppState>, memos: Vec<Memo>) -> Result<(), String> {
-    *state.memos.lock().unwrap() = memos;
-    save_immediately(&state)
 }
 
 /// 단일 메모 조회
 #[tauri::command]
-fn get_memo(state: State<AppState>, id: String) -> Option<Memo> {
+fn get_memo(state: State<SharedState>, id: String) -> Option<Memo> {
     state.memos.lock().unwrap().iter().find(|m| m.id == id).cloned()
 }
 
 /// 메모 생성
 #[tauri::command]
-fn create_memo(app: AppHandle, state: State<AppState>, memo: Memo) -> Result<Memo, String> {
+fn create_memo(app: AppHandle, state: State<SharedState>, memo: Memo) -> Result<Memo, String> {
     {
         let mut memos = state.memos.lock().unwrap();
         memos.insert(0, memo.clone());
     }
     
-    schedule_save(&state);
+    // State<Arc<AppState>>에서 &Arc<AppState>로 변환
+    schedule_save(state.inner());
     
     // 이벤트 발행
     app.emit("memo-changed", MemoEvent::Created { memo: memo.clone() }).ok();
@@ -185,7 +187,7 @@ fn create_memo(app: AppHandle, state: State<AppState>, memo: Memo) -> Result<Mem
 #[tauri::command]
 fn update_memo(
     app: AppHandle,
-    state: State<AppState>,
+    state: State<SharedState>,
     id: String,
     update: MemoUpdate,
 ) -> Result<Memo, String> {
@@ -220,7 +222,7 @@ fn update_memo(
         }
     }
     
-    schedule_save(&state);
+    schedule_save(state.inner());
     
     // 이벤트 발행
     app.emit("memo-changed", MemoEvent::Updated { memo: updated_memo.clone() }).ok();
@@ -230,7 +232,7 @@ fn update_memo(
 
 /// 메모 삭제
 #[tauri::command]
-fn delete_memo(app: AppHandle, state: State<AppState>, id: String) -> Result<(), String> {
+fn delete_memo(app: AppHandle, state: State<SharedState>, id: String) -> Result<(), String> {
     {
         let mut memos = state.memos.lock().unwrap();
         let len_before = memos.len();
@@ -349,7 +351,7 @@ fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                     };
 
                     // AppState를 통해 메모 저장
-                    let state = app.state::<AppState>();
+                    let state = app.state::<SharedState>();
                     {
                         let mut memos = state.memos.lock().unwrap();
                         memos.insert(0, new_memo.clone());
@@ -371,7 +373,7 @@ fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 }
                 "quit" => {
                     // 종료 전 저장 보장
-                    let state = app.state::<AppState>();
+                    let state = app.state::<SharedState>();
                     save_immediately(&state).ok();
                     app.exit(0);
                 }
@@ -405,17 +407,13 @@ fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .manage(AppState::new())
+        .manage(Arc::new(AppState::new()))
         .invoke_handler(tauri::generate_handler![
-            // 기존 API (하위 호환)
             load_memos,
-            save_memos,
-            // 새 API
             get_memo,
             create_memo,
             update_memo,
             delete_memo,
-            // 윈도우 관리
             open_memo_window,
             close_memo_window,
             show_main_window
