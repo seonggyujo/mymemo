@@ -1,0 +1,174 @@
+/* 개별 메모 창 스타일 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.memo-window {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.1);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+  position: relative;
+}
+
+.memo-window.loading {
+  align-items: center;
+  justify-content: center;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* 헤더 */
+.memo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  cursor: grab;
+  user-select: none;
+}
+
+.memo-header:active {
+  cursor: grabbing;
+}
+
+.header-left,
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: rgba(0, 0, 0, 0.1);
+  color: inherit;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  opacity: 0.7;
+}
+
+.header-btn:hover {
+  background: rgba(0, 0, 0, 0.2);
+  opacity: 1;
+}
+
+.header-btn.active {
+  background: rgba(0, 0, 0, 0.25);
+  opacity: 1;
+}
+
+.close-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.save-indicator {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-left: 4px;
+}
+
+/* 색상 선택기 */
+.color-picker {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.color-option {
+  width: 24px;
+  height: 24px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.color-option:hover {
+  transform: scale(1.15);
+}
+
+.color-option.active {
+  border-color: rgba(0, 0, 0, 0.4);
+  transform: scale(1.1);
+}
+
+/* 제목 */
+.memo-title {
+  padding: 10px 12px 6px;
+  font-size: 15px;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  outline: none;
+  width: 100%;
+}
+
+.memo-title::placeholder {
+  opacity: 0.5;
+}
+
+/* 내용 */
+.memo-content {
+  flex: 1;
+  padding: 6px 12px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+}
+
+.memo-content::placeholder {
+  opacity: 0.4;
+}
+
+/* 리사이즈 핸들 */
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  opacity: 0.3;
+}
+
+.resize-handle::after {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+}
+
+/* 선택 방지 (헤더 드래그 시) */
+.memo-header {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.memo-title,
+.memo-content {
+  -webkit-user-select: text;
+  user-select: text;
+}
