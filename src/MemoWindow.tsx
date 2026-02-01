@@ -93,7 +93,7 @@ function MemoWindow() {
   }, []);
 
   // 메모 저장 (새 API 사용)
-  const saveMemo = async (updatedMemo: Memo) => {
+  const saveMemo = useCallback(async (updatedMemo: Memo) => {
     setSaveStatus("saving");
     try {
       await invoke("update_memo", {
@@ -111,7 +111,7 @@ function MemoWindow() {
       console.error("Failed to save:", e);
       setSaveStatus("");
     }
-  };
+  }, []);
 
   // 메모 업데이트 (디바운스 수정)
   const updateMemo = useCallback(
@@ -137,7 +137,7 @@ function MemoWindow() {
         saveTimeoutRef.current = null;
       }, 500);
     },
-    [memo]
+    [memo, saveMemo]
   );
 
   // Always on top 토글

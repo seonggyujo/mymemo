@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import type { Memo } from "../types";
 import { getColorStyle } from "../constants/colors";
 
@@ -11,7 +11,8 @@ interface MemoCardProps {
 
 const MemoCard: React.FC<MemoCardProps> = React.memo(
   ({ memo, onOpen, onDelete, formatTime }) => {
-    const color = getColorStyle(memo.color);
+    // 색상 스타일 캐싱
+    const color = useMemo(() => getColorStyle(memo.color), [memo.color]);
 
     return (
       <div
